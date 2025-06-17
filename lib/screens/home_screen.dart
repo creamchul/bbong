@@ -11,60 +11,24 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
-  late AnimationController _titleController;
-  late AnimationController _cardController;
-  late Animation<double> _titleAnimation;
-  late Animation<double> _cardAnimation;
+class _HomeScreenState extends State<HomeScreen> {
+  bool _isLayoutComplete = false;
 
   @override
   void initState() {
     super.initState();
-    
-    _titleController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    
-    _cardController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-
-    _titleAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _titleController,
-      curve: Curves.easeOutBack,
-    ));
-
-    _cardAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _cardController,
-      curve: Curves.elasticOut,
-    ));
-
-    _titleController.forward();
-    Future.delayed(const Duration(milliseconds: 500), () {
-      _cardController.forward();
+    // 웹 환경에서 안전한 레이아웃을 위해 프레임 렌더링 완료 후 인터랙션 활성화
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _isLayoutComplete = true;
+        });
+      }
     });
   }
 
   @override
-  void dispose() {
-    _titleController.dispose();
-    _cardController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final isWebOrTablet = MediaQuery.of(context).size.width > 600;
-    
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -78,255 +42,236 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: screenHeight - MediaQuery.of(context).padding.top - MediaQuery.of(context).padding.bottom,
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(isWebOrTablet ? 40.0 : 20.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(height: isWebOrTablet ? 20 : 10),
-                    
-                    // 제목 애니메이션
-                    AnimatedBuilder(
-                      animation: _titleAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _titleAnimation.value,
-                          child: Opacity(
-                            opacity: _titleAnimation.value,
-                            child: Column(
-                              children: [
-                                Text(
-                                  AppStrings.appName,
-                                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                    fontSize: isWebOrTablet ? 56 : 40,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.cardBorder,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black.withOpacity(0.5),
-                                        offset: const Offset(2, 2),
-                                        blurRadius: 4,
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(height: isWebOrTablet ? 12 : 8),
-                                Text(
-                                  'Vietnam Bbong',
-                                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                    fontSize: isWebOrTablet ? 20 : 16,
-                                    color: AppColors.textSecondary,
-                                    letterSpacing: 2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    
-                    SizedBox(height: isWebOrTablet ? 60 : 30),
-                    
-                    // 카드 데모 애니메이션
-                    AnimatedBuilder(
-                      animation: _cardAnimation,
-                      builder: (context, child) {
-                        return Transform.scale(
-                          scale: _cardAnimation.value,
-                          child: Opacity(
-                            opacity: _cardAnimation.value,
-                            child: _buildCardDemo(isWebOrTablet),
-                          ),
-                        );
-                      },
-                    ),
-                    
-                    SizedBox(height: isWebOrTablet ? 60 : 40),
-                    
-                    // 게임 모드 선택 버튼들
-                    Column(
-                      children: [
-                        _buildMenuButton(
-                          context,
-                          title: AppStrings.singlePlay,
-                          subtitle: 'AI와 대전하기',
-                          icon: Icons.person,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const SingleGameScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                        
-                        const SizedBox(height: 16),
-                        
-                        _buildMenuButton(
-                          context,
-                          title: AppStrings.multiPlay,
-                          subtitle: '친구들과 함께 (준비중)',
-                          icon: Icons.group,
-                          onTap: () {
-                            _showComingSoon(context);
-                          },
-                          enabled: false,
-                        ),
-                        
-                        SizedBox(height: isWebOrTablet ? 40 : 30),
-                        
-                        _buildRulesButton(context),
-                      ],
-                    ),
-                    
-                    SizedBox(height: isWebOrTablet ? 20 : 10),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          child: _isLayoutComplete ? _buildContent() : _buildLoadingContent(),
         ),
       ),
     );
   }
 
-  Widget _buildCardDemo(bool isWebOrTablet) {
-    final cardWidth = isWebOrTablet ? 90.0 : 70.0;
-    final cardHeight = isWebOrTablet ? 130.0 : 100.0;
-    
-    return Column(
-      children: [
-        // 플레이어 카드들을 일자로 정렬
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildLoadingContent() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppColors.cardBorder),
+          ),
+          SizedBox(height: 16),
+          Text(
+            '로딩 중...',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent() {
+    return Scrollbar(
+      child: SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CardWidget(
-              card: GameCard(value: 1, id: 'demo1'),
-              isRevealed: true,
-              width: cardWidth,
-              height: cardHeight,
-              showAnimation: false,
-            ),
-            SizedBox(width: isWebOrTablet ? 20 : 15),
-            CardWidget(
-              card: GameCard(value: 5, id: 'demo2'),
-              isRevealed: true,
-              width: cardWidth,
-              height: cardHeight,
-              showAnimation: false,
-            ),
-            SizedBox(width: isWebOrTablet ? 20 : 15),
-            CardWidget(
-              card: GameCard(value: 10, id: 'demo3'),
-              isRevealed: true,
-              width: cardWidth,
-              height: cardHeight,
-              showAnimation: false,
-            ),
+            const SizedBox(height: 20),
+            
+            // 제목 섹션
+            _buildTitleSection(),
+            
+            const SizedBox(height: 40),
+            
+            // 카드 데모 섹션
+            _buildCardDemoSection(),
+            
+            const SizedBox(height: 40),
+            
+            // 메뉴 버튼들
+            _buildMenuSection(),
+            
+            const SizedBox(height: 20),
           ],
         ),
-        
-        SizedBox(height: isWebOrTablet ? 20 : 15),
-        
-        // 월남 카드를 아래쪽에 배치
-        Column(
-          children: [
-            Text(
-              AppStrings.vietnam,
-              style: TextStyle(
-                color: AppColors.textSecondary,
-                fontSize: isWebOrTablet ? 16 : 14,
-                fontWeight: FontWeight.bold,
-              ),
+      ),
+    );
+  }
+
+  Widget _buildTitleSection() {
+    return Column(
+      children: [
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            AppStrings.appName,
+            style: const TextStyle(
+              fontSize: 48,
+              fontWeight: FontWeight.bold,
+              color: AppColors.cardBorder,
+              shadows: [
+                Shadow(
+                  color: Colors.black54,
+                  offset: Offset(2, 2),
+                  blurRadius: 4,
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
-            CardWidget(
-              card: GameCard(value: 5, id: 'vietnam'),
-              isRevealed: true,
-              width: cardWidth,
-              height: cardHeight,
-              showAnimation: false,
+          ),
+        ),
+        const SizedBox(height: 8),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'Vietnam Bbong',
+            style: const TextStyle(
+              fontSize: 18,
+              color: AppColors.textSecondary,
+              letterSpacing: 2,
             ),
-          ],
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildMenuButton(
-    BuildContext context, {
+  Widget _buildCardDemoSection() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            _buildDemoCard(1, 'demo1'),
+            _buildDemoCard(5, 'demo2'),
+            _buildDemoCard(10, 'demo3'),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDemoCard(int value, String id) {
+    return Container(
+      constraints: const BoxConstraints(
+        maxWidth: 80,
+        maxHeight: 120,
+      ),
+      child: CardWidget(
+        card: GameCard(value: value, id: id),
+        isRevealed: true,
+        width: 60,
+        height: 90,
+        showAnimation: false,
+      ),
+    );
+  }
+
+  Widget _buildMenuSection() {
+    return Column(
+      children: [
+        _buildSafeMenuButton(
+          title: AppStrings.singlePlay,
+          subtitle: 'AI와 대전하기',
+          icon: Icons.person,
+          onTap: _isLayoutComplete ? () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const SingleGameScreen(),
+              ),
+            );
+          } : null,
+        ),
+        
+        const SizedBox(height: 16),
+        
+        _buildSafeMenuButton(
+          title: AppStrings.multiPlay,
+          subtitle: '친구들과 함께 (준비중)',
+          icon: Icons.group,
+          onTap: _isLayoutComplete ? () {
+            _showComingSoon();
+          } : null,
+          enabled: false,
+        ),
+        
+        const SizedBox(height: 24),
+        
+        if (_isLayoutComplete) _buildRulesButton(),
+      ],
+    );
+  }
+
+  Widget _buildSafeMenuButton({
     required String title,
     required String subtitle,
     required IconData icon,
-    required VoidCallback onTap,
+    VoidCallback? onTap,
     bool enabled = true,
   }) {
-    final isWebOrTablet = MediaQuery.of(context).size.width > 600;
-    
     return Container(
       width: double.infinity,
-      constraints: BoxConstraints(
-        maxWidth: isWebOrTablet ? 600 : double.infinity,
+      constraints: const BoxConstraints(
+        maxWidth: 400,
+        minHeight: 80,
       ),
-      margin: EdgeInsets.symmetric(horizontal: isWebOrTablet ? 40 : 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Material(
         color: enabled ? AppColors.buttonPrimary : AppColors.buttonSecondary,
         borderRadius: BorderRadius.circular(16),
         elevation: enabled ? 8 : 4,
-        shadowColor: Colors.black.withOpacity(0.3),
+        shadowColor: Colors.black26,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: enabled ? onTap : null,
+          onTap: onTap,
           child: Padding(
-            padding: EdgeInsets.all(isWebOrTablet ? 24 : 20),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Container(
-                  padding: EdgeInsets.all(isWebOrTablet ? 16 : 12),
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white12,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
                     icon,
-                    size: isWebOrTablet ? 40 : 32,
+                    size: 28,
                     color: Colors.white,
                   ),
                 ),
-                SizedBox(width: isWebOrTablet ? 24 : 20),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         title,
-                        style: TextStyle(
-                          fontSize: isWebOrTablet ? 24 : 20,
+                        style: const TextStyle(
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: isWebOrTablet ? 6 : 4),
+                      const SizedBox(height: 4),
                       Text(
                         subtitle,
                         style: TextStyle(
-                          fontSize: isWebOrTablet ? 16 : 14,
+                          fontSize: 14,
                           color: Colors.white.withOpacity(0.8),
                         ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
                 Icon(
                   Icons.arrow_forward_ios,
-                  size: isWebOrTablet ? 24 : 20,
+                  size: 18,
                   color: Colors.white.withOpacity(enabled ? 0.8 : 0.4),
                 ),
               ],
@@ -337,9 +282,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildRulesButton(BuildContext context) {
+  Widget _buildRulesButton() {
     return TextButton.icon(
-      onPressed: () => _showRules(context),
+      onPressed: () => _showRules(),
       icon: const Icon(
         Icons.help_outline,
         color: AppColors.textSecondary,
@@ -354,7 +299,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showComingSoon(BuildContext context) {
+  void _showComingSoon() {
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -380,7 +326,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
   }
 
-  void _showRules(BuildContext context) {
+  void _showRules() {
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(

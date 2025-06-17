@@ -66,6 +66,8 @@ class _CardWidgetState extends State<CardWidget>
   }
 
   void _toggleCard() {
+    if (!mounted || !widget.showAnimation) return;
+    
     if (widget.showAnimation) {
       if (_isFlipped) {
         _animationController.reverse();
@@ -78,53 +80,91 @@ class _CardWidgetState extends State<CardWidget>
 
   @override
   Widget build(BuildContext context) {
+    // 웹 환경에서 안전한 렌더링을 위한 null 검사
+    if (!mounted) {
+      return SizedBox(
+        width: widget.width,
+        height: widget.height,
+      );
+    }
+
     return GestureDetector(
       onTap: widget.onTap,
-      child: AnimatedBuilder(
-        animation: _flipAnimation,
-        builder: (context, child) {
-          final isShowingFront = _flipAnimation.value < 0.5;
-          return Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.001)
-              ..rotateY(_flipAnimation.value * 3.14159),
-            child: Container(
-              width: widget.width,
-              height: widget.height,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.cardBorder,
-                  width: 2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: isShowingFront || !widget.isRevealed
-                    ? _buildCardBack()
-                    : Transform(
-                        alignment: Alignment.center,
-                        transform: Matrix4.identity()..rotateY(3.14159),
-                        child: _buildCardFront(),
+      child: widget.showAnimation ? 
+        AnimatedBuilder(
+          animation: _flipAnimation,
+          builder: (context, child) {
+            final isShowingFront = _flipAnimation.value < 0.5;
+            return Transform(
+              alignment: Alignment.center,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.001)
+                ..rotateY(_flipAnimation.value * 3.14159),
+              child: SizedBox(
+                width: widget.width,
+                height: widget.height,
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.cardBorder,
+                      width: 2,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 8,
+                        offset: Offset(0, 4),
                       ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: isShowingFront || !widget.isRevealed
+                        ? _buildCardBack()
+                        : Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()..rotateY(3.14159),
+                            child: _buildCardFront(),
+                          ),
+                  ),
+                ),
               ),
+            );
+          },
+        ) :
+        // 애니메이션이 비활성화된 경우 단순한 정적 카드
+        SizedBox(
+          width: widget.width,
+          height: widget.height,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.cardBorder,
+                width: 2,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
-          );
-        },
-      ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: widget.isRevealed ? _buildCardFront() : _buildCardBack(),
+            ),
+          ),
+        ),
     );
   }
 
   Widget _buildCardBack() {
     return Container(
+      width: widget.width,
+      height: widget.height,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -138,6 +178,7 @@ class _CardWidgetState extends State<CardWidget>
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.casino,
@@ -145,12 +186,15 @@ class _CardWidgetState extends State<CardWidget>
               color: AppColors.cardBorder.withOpacity(0.7),
             ),
             const SizedBox(height: 4),
-            Text(
-              '월남뽕',
-              style: TextStyle(
-                color: AppColors.cardBorder.withOpacity(0.7),
-                fontSize: widget.width * 0.12,
-                fontWeight: FontWeight.bold,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                '월남뽕',
+                style: TextStyle(
+                  color: AppColors.cardBorder.withOpacity(0.7),
+                  fontSize: widget.width * 0.12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -162,6 +206,8 @@ class _CardWidgetState extends State<CardWidget>
   Widget _buildCardFront() {
     if (widget.card == null) {
       return Container(
+        width: widget.width,
+        height: widget.height,
         color: AppColors.cardFace,
         child: const Center(
           child: Icon(Icons.error, color: Colors.red),
@@ -170,6 +216,8 @@ class _CardWidgetState extends State<CardWidget>
     }
 
     return Container(
+      width: widget.width,
+      height: widget.height,
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
@@ -182,51 +230,39 @@ class _CardWidgetState extends State<CardWidget>
       ),
       child: Stack(
         children: [
-          // 배경 패턴 (선택사항)
+          // 배경 패턴
           _buildCardPattern(),
           
-          // 숫자 레이어
-          Column(
-            children: [
-              // 상단 숫자
-              Container(
-                height: widget.height * 0.25,
-                alignment: Alignment.topLeft,
-                padding: EdgeInsets.all(widget.width * 0.08),
-                child: _buildNumberWithShadow(
-                  widget.card!.value.toString(),
-                  fontSize: widget.width * 0.18,
-                ),
+          // 상단 숫자
+          Positioned(
+            top: 8,
+            left: 8,
+            child: _buildNumberWithShadow(
+              widget.card!.value.toString(),
+              fontSize: widget.width * 0.18,
+            ),
+          ),
+          
+          // 중앙 큰 숫자
+          Center(
+            child: _buildNumberWithShadow(
+              widget.card!.value.toString(),
+              fontSize: widget.width * 0.45,
+              isMain: true,
+            ),
+          ),
+          
+          // 하단 숫자 (뒤집힌)
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: Transform.rotate(
+              angle: 3.14159,
+              child: _buildNumberWithShadow(
+                widget.card!.value.toString(),
+                fontSize: widget.width * 0.18,
               ),
-              // 중앙 큰 숫자
-              Expanded(
-                child: Container(
-                  alignment: Alignment.center,
-                  padding: EdgeInsets.symmetric(horizontal: widget.width * 0.1),
-                  child: FittedBox(
-                    fit: BoxFit.contain,
-                    child: _buildNumberWithShadow(
-                      widget.card!.value.toString(),
-                      fontSize: widget.width * 0.45,
-                      isMain: true,
-                    ),
-                  ),
-                ),
-              ),
-              // 하단 숫자 (뒤집힌)
-              Container(
-                height: widget.height * 0.25,
-                alignment: Alignment.bottomRight,
-                padding: EdgeInsets.all(widget.width * 0.08),
-                child: Transform.rotate(
-                  angle: 3.14159,
-                  child: _buildNumberWithShadow(
-                    widget.card!.value.toString(),
-                    fontSize: widget.width * 0.18,
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),
@@ -257,16 +293,16 @@ class _CardWidgetState extends State<CardWidget>
             fontSize: fontSize,
             fontWeight: FontWeight.w900,
             color: color,
-            shadows: [
+            shadows: const [
               Shadow(
-                offset: const Offset(2, 2),
+                offset: Offset(2, 2),
                 blurRadius: 3,
-                color: Colors.black.withOpacity(0.5),
+                color: Colors.black54,
               ),
               Shadow(
-                offset: const Offset(-1, -1),
+                offset: Offset(-1, -1),
                 blurRadius: 1,
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white60,
               ),
             ],
           ),
